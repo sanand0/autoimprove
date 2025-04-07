@@ -16,6 +16,35 @@ const { token } = await fetch("https://llmfoundry.straive.com/token", { credenti
 const marked = new Marked();
 const messages = [{ role: "system", content: "Generate a single page HTML app in a single Markdown code block." }];
 
+const demoList = [
+  { id: 'circle', title: 'Circle Drawing', icon: 'bi-circle' },
+  { id: 'minesweeper', title: 'minesweeper', icon: 'bi-controller' },
+  { id: 'fractal', title: 'Fractal', icon: 'bi-snow' },
+  { id: 'rain', title: 'Rain Simulation', icon: 'bi-cloud-rain' },
+  { id: 'game', title: 'Simple Game', icon: 'bi-controller' },
+  { id: 'clock', title: 'Analog Clock', icon: 'bi-clock' },
+  { id: 'snake', title: 'Snake Game', icon: 'bi-joystick' },
+  { id: 'paint', title: 'Paint App', icon: 'bi-palette' }
+];
+
+// Replace showNotification with showToast
+function showToast(title, message, type = 'success') {
+  const toastContainer = document.querySelector('.toast-container');
+  const toastEl = document.createElement('div');
+  toastEl.className = 'toast';
+  toastEl.innerHTML = `
+    <div class="toast-header bg-${type} text-white">
+      <strong class="me-auto">${title}</strong>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+    </div>
+    <div class="toast-body">${message}</div>
+  `;
+  toastContainer.appendChild(toastEl);
+  const toast = new bootstrap.Toast(toastEl);
+  toast.show();
+  toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+
 document.querySelector("#app-prompt").addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -52,18 +81,22 @@ const loadingHTML = html` <div class="d-flex justify-content-center align-items-
 
 function drawMessages(messages) {
   render(
-    messages.map(
-      ({ role, content, loading }) => html`
+    messages.map(({ role, content, loading }, i) => {
+      const parsedContent = marked.parse(content);
+      return html`
         <section class="message ${role}-message mb-4">
           <div class="fw-bold text-capitalize mb-2">${role}:</div>
-          <div class="message-content">${unsafeHTML(marked.parse(content))}</div>
-          ${role == "assistant" ? (loading ? loadingHTML : unsafeHTML(drawOutput(content))) : ""}
+          <div class="message-content">
+            ${role === "assistant" ? unsafeHTML(drawCollapsibleSections(parsedContent, i)) : unsafeHTML(parsedContent)}
+            ${role === "assistant" && !loading ? unsafeHTML(drawOutput(content)) : ""}
+          </div>
         </section>
-      `
-    ),
+      `;
+    }),
     $response
   );
 }
+
 
 const contentCache = {};
 
@@ -82,4 +115,140 @@ function drawOutput(content) {
 
   contentCache[content] = iframe.outerHTML;
   return contentCache[content];
+}
+
+document.querySelector("#save-conversation").addEventListener("click", () => {
+  const modal = new bootstrap.Modal(document.getElementById('saveModal'));
+  const input = document.getElementById('filename');
+  input.value = `conversation_${Date.now()}`;
+  
+  const saveHandler = async () => {
+    try {
+      const handle = await window.showDirectoryPicker();
+      const fileHandle = await handle.getFileHandle(`${input.value}.js`, { create: true });
+      const writable = await fileHandle.createWritable();
+      const fileContent = `const conversation = ${JSON.stringify(messages, null, 2)};`;
+      await writable.write(fileContent);
+      await writable.close();
+      modal.hide();
+      showToast("Success", `Conversation saved as ${input.value}.js`);
+    } catch (error) {
+      console.error("Error saving:", error);
+      showToast("Error", error.name === 'SecurityError' ? 
+        'Please try saving again. File picker requires user interaction.' : 
+        `Save failed: ${error.message}`, 'danger');
+    }
+  };
+
+  document.getElementById('saveButton').onclick = saveHandler;
+  modal.show();
+  setTimeout(() => input.focus(), 200);
+});
+
+document.querySelector("#load-conversation").addEventListener("click", async () => {
+  try {
+    const [fileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'JavaScript files', accept: { 'text/javascript': ['.js'] }}]
+    });
+    
+    const file = await fileHandle.getFile();
+    const fileContent = await file.text();
+    const conversation = eval(fileContent + '; conversation');
+    
+    messages.length = 0;
+    messages.push(...conversation);
+    drawMessages(messages);
+    showToast("Success", "Conversation loaded successfully");
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      console.error("Load error:", error);
+      showToast("Error", "Failed to load file", 'danger');
+    }
+  }
+});
+
+function renderDemos() {
+  const demosContainer = document.getElementById('demos');
+  demosContainer.innerHTML = demoList.map(demo => `
+    <div class="col mb-4">
+      <div class="card h-100 demo-card" role="button" data-demo="${demo.id}" style="cursor: pointer;">
+        <div class="card-body text-center">
+          <i class="bi ${demo.icon} fs-1 mb-3"></i>
+          <h5 class="card-title">${demo.title}</h5>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  demosContainer.addEventListener('click', async (e) => {
+    const card = e.target.closest('.demo-card');
+    if (!card) return;
+    
+    const demoId = card.dataset.demo;
+    try {
+      const response = await fetch(`files/${demoId}.js`);
+      if (!response.ok) throw new Error(`Demo not found: ${demoId}`);
+      const fileContent = await response.text();
+      let conversation = eval(fileContent + '; conversation');
+      
+      messages.length = 0;
+      messages.push(...conversation);
+      drawMessages(messages);
+      showToast("Success", `Demo "${demoId}" loaded successfully`);
+    } catch (error) {
+      console.error("Demo load error:", error);
+      showToast("Error", "Failed to load demo", 'danger');
+    }
+  });
+}
+renderDemos();
+
+
+function drawCollapsibleSections(htmlContent, index) {
+  const codeBlockRegex = /<pre><code[\s\S]*?<\/code><\/pre>/i;
+  const match = htmlContent.match(codeBlockRegex);
+  
+  if (!match) {
+    const template = document.getElementById('single-accordion-template');
+    const accordion = template.content.cloneNode(true);
+    const accordionEl = accordion.querySelector('.accordion');
+    accordionEl.id = `accordion-${index}`;
+    
+    const collapseButton = accordion.querySelector('.accordion-button');
+    const collapseDiv = accordion.querySelector('.accordion-collapse');
+    const collapseId = `explanation-${index}`;
+    
+    collapseButton.dataset.bsToggle = 'collapse';
+    collapseButton.dataset.bsTarget = `#${collapseId}`;
+    collapseDiv.id = collapseId;
+    collapseDiv.dataset.bsParent = `#accordion-${index}`;
+    
+    accordion.querySelector('.accordion-body').innerHTML = htmlContent;
+    return accordion.firstElementChild.outerHTML;
+  }
+
+  const template = document.getElementById('double-accordion-template');
+  const accordion = template.content.cloneNode(true);
+  const accordionEl = accordion.querySelector('.accordion');
+  accordionEl.id = `accordion-${index}`;
+  
+  const buttons = accordion.querySelectorAll('.accordion-button');
+  const collapseDivs = accordion.querySelectorAll('.accordion-collapse');
+  
+  ['code', 'explanation'].forEach((type, i) => {
+    const collapseId = `${type}-${index}`;
+    buttons[i].dataset.bsToggle = 'collapse';
+    buttons[i].dataset.bsTarget = `#${collapseId}`;
+    collapseDivs[i].id = collapseId;
+    collapseDivs[i].dataset.bsParent = `#accordion-${index}`;
+  });
+  
+  const codeHtml = match[0];
+  const before = htmlContent.slice(0, match.index);
+  const after = htmlContent.slice(match.index + codeHtml.length);
+  
+  accordion.querySelectorAll('.accordion-body')[0].innerHTML = codeHtml;
+  accordion.querySelectorAll('.accordion-body')[1].innerHTML = before + after;
+  
+  return accordion.firstElementChild.outerHTML;
 }

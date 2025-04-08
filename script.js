@@ -75,26 +75,40 @@ document.querySelector("#app-prompt").addEventListener("submit", async (e) => {
   $prompt.value = "Improve this app!";
 });
 
+function parseAssistantContent(content) {
+  const parsed = marked.parse(content);
+  const codeMatch = parsed.match(/<pre><code[\s\S]*?<\/code><\/pre>/i);
+  return codeMatch ? {code: codeMatch[0],explanation: parsed.replace(codeMatch[0], '')
+  } : { explanation: parsed };
+}
+
 function drawMessages(messages) {
   render(
-    messages.map(
-      ({ role, content, loading }, index) => html`
-        <div class="card mb-4 shadow-sm ${role}-card">
-          <div class="card-header py-2" role="button" data-bs-toggle="collapse" data-bs-target="#message${index}">
-            <div class="d-flex align-items-center">
-              <i class="bi bi-chevron-down me-2"></i>
-              <span class="fw-bold text-capitalize">${role}</span>
-            </div>
-          </div>
-          <div class="collapse show" id="message${index}">
-            <div class="card-body">
-              <div class="message-content">${unsafeHTML(marked.parse(content))}</div>
-            </div>
-            ${role === "assistant" ? (loading ? loadingHTML : unsafeHTML(drawOutput(content))) : ""}
-          </div>
+    messages.map(({ role, content, loading }, i) => html`
+      <div class="mb-3 border rounded">
+        <div class="p-2 bg-body-tertiary" data-bs-toggle="collapse" data-bs-target="#msg${i}" style="cursor:pointer">
+          <i class="bi bi-chevron-down"></i> ${role}
         </div>
-      `
-    ),
+        <div id="msg${i}" class="collapse show">
+          ${role === "assistant" ? (() => {
+            const { code, explanation } = parseAssistantContent(content);
+            return html`
+              ${code ? html`
+                <div class="p-2 border-bottom bi-caret-down-fill" data-bs-toggle="collapse" data-bs-target="#code${i}" style="cursor:pointer">
+                  <i class="bi bi-code-slash"></i> Code
+                </div>
+                <div id="code${i}" class="collapse show p-2">${unsafeHTML(code)}</div>
+              ` : ''}
+              <div class="p-2 border-bottom bi-caret-down-fill" data-bs-toggle="collapse" data-bs-target="#exp${i}" style="cursor:pointer">
+                <i class="bi bi-text-paragraph"></i> Explanation
+              </div>
+              <div id="exp${i}" class="collapse show p-2">${unsafeHTML(explanation)}</div>
+              ${loading ? loadingHTML : unsafeHTML(drawOutput(content))}
+            `;
+          })() : html`<div class="p-2">${unsafeHTML(marked.parse(content))}</div>`}
+        </div>
+      </div>
+    `),
     $response
   );
 }

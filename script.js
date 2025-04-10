@@ -45,7 +45,7 @@ const { token } = await fetch("https://llmfoundry.straive.com/token", { credenti
 );
 
 const marked = new Marked();
-const messages = [{ role: "system", content: "Generate a single page HTML app in a single Markdown code block." }];
+const messages = [{ role: "system", content: "Generate a single page HTML app in a single Markdown code block.If this is not the first response in a thread, begin your explanation with a single line summarizing what changes were made since the previous version." }];
 
 document.querySelector("#app-prompt").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -97,12 +97,12 @@ function drawMessages(messages) {
                 <div class="p-2 border-bottom bi-caret-down-fill" data-bs-toggle="collapse" data-bs-target="#code${i}" style="cursor:pointer">
                   <i class="bi bi-code-slash"></i> Code
                 </div>
-                <div id="code${i}" class="collapse show p-2">${unsafeHTML(code)}</div>
+                <div id="code${i}" class="collapse  p-2">${unsafeHTML(code)}</div>
               ` : ''}
               <div class="p-2 border-bottom bi-caret-down-fill" data-bs-toggle="collapse" data-bs-target="#exp${i}" style="cursor:pointer">
                 <i class="bi bi-text-paragraph"></i> Explanation
               </div>
-              <div id="exp${i}" class="collapse show p-2">${unsafeHTML(explanation)}</div>
+              <div id="exp${i}" class="collapse  p-2">${unsafeHTML(explanation)}</div>
               ${loading ? loadingHTML : unsafeHTML(drawOutput(content))}
             `;
           })() : html`<div class="p-2">${unsafeHTML(marked.parse(content))}</div>`}

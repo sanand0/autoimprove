@@ -45,13 +45,19 @@ const { token } = await fetch("https://llmfoundry.straive.com/token", { credenti
 );
 
 const marked = new Marked();
-const messages = [{ role: "system", content: "Generate a single page HTML app in a single Markdown code block.If this is not the first response in a thread, begin your explanation with a single line summarizing what changes were made since the previous version." }];
+const messages = [{ role: "system", content: "Generate a single page HTML app in a single Markdown code block and use emojis in the explanation to make each point more engaging and visually distinct" }];
 
 document.querySelector("#app-prompt").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const originalPrompt = $prompt.value.trim();
+  messages.push({ role: "user", content: originalPrompt });
+  const apiPrompt = $submit.textContent === "Improve"
+    ? `${originalPrompt}\n\nAlong with the code. Provide a detailed explanation of improvements made since the last version, organized with categorized bullet points. Use emojis in the explanation to make each point more engaging and visually distinct. At the end, include a one-line summary of what changed since the previous version, enclosed in <summary> tags. Do not include any other content outside the tags.`
+    : originalPrompt;
 
-  messages.push({ role: "user", content: $prompt.value });
-  const body = JSON.stringify({ model: $model.value, messages, stream: true });
+  const body = JSON.stringify({ 
+    model: $model.value,
+    messages: [...messages.slice(0, -1), { role: "user", content: apiPrompt }], stream: true });
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}:autoimprove` };
 
   messages.push({ role: "assistant", content: "", loading: true });
@@ -76,10 +82,15 @@ document.querySelector("#app-prompt").addEventListener("submit", async (e) => {
 });
 
 function parseAssistantContent(content) {
-  const parsed = marked.parse(content);
-  const codeMatch = parsed.match(/<pre><code[\s\S]*?<\/code><\/pre>/i);
-  return codeMatch ? {code: codeMatch[0],explanation: parsed.replace(codeMatch[0], '')
-  } : { explanation: parsed };
+  const summaryMatch = content.match(/<summary>(.*?)<\/summary>/s);
+  const contentWithoutSummary = content.replace(/<summary>.*?<\/summary>/s, '').trim();
+  const parsed = marked.parse(contentWithoutSummary || '');
+  const codeMatch = parsed ? parsed.match(/<pre><code[\s\S]*?<\/code><\/pre>/i) : null;
+  return {
+    code: codeMatch ? codeMatch[0] : null,
+    explanation: parsed ? parsed.replace(codeMatch?.[0] || '', '').trim() : '',
+    summary: summaryMatch ? summaryMatch[1].trim() : ''
+  };
 }
 
 function drawMessages(messages) {
@@ -91,18 +102,18 @@ function drawMessages(messages) {
         </div>
         <div id="msg${i}" class="collapse show">
           ${role === "assistant" ? (() => {
-            const { code, explanation } = parseAssistantContent(content);
+            const { code, explanation, summary } = parseAssistantContent(content);
             return html`
               ${code ? html`
                 <div class="p-2 border-bottom bi-caret-down-fill" data-bs-toggle="collapse" data-bs-target="#code${i}" style="cursor:pointer">
                   <i class="bi bi-code-slash"></i> Code
                 </div>
-                <div id="code${i}" class="collapse  p-2">${unsafeHTML(code)}</div>
+                <div id="code${i}" class="collapse p-2">${unsafeHTML(code)}</div>
               ` : ''}
               <div class="p-2 border-bottom bi-caret-down-fill" data-bs-toggle="collapse" data-bs-target="#exp${i}" style="cursor:pointer">
-                <i class="bi bi-text-paragraph"></i> Explanation
+                <i class="bi bi-text-paragraph"></i> Explanation ${summary ? html`<span class="ms-2 text-muted small">${summary}</span>` : ''}
               </div>
-              <div id="exp${i}" class="collapse  p-2">${unsafeHTML(explanation)}</div>
+              <div id="exp${i}" class="collapse p-2">${unsafeHTML(explanation)}</div>
               ${loading ? loadingHTML : unsafeHTML(drawOutput(content))}
             `;
           })() : html`<div class="p-2">${unsafeHTML(marked.parse(content))}</div>`}

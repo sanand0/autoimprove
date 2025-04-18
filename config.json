@@ -4,6 +4,7 @@
     { "file": "apps/shapes.json", "title": "Shapes", "icon": "bi-palette" },
     { "file": "apps/particles.json", "title": "Particles", "icon": "bi-diagram-3" },
     { "file": "apps/fractal.json", "title": "Fractal", "icon": "bi-snow" },
+    { "file": "apps/animated-svg.json", "title": "Animated SVG", "icon": "bi-filetype-svg" },
     { "file": "apps/clock.json", "title": "Clock", "icon": "bi-clock" },
     { "file": "apps/dashboard.json", "title": "Dashboard", "icon": "bi-bar-chart-fill" }
   ]

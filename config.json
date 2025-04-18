@@ -1,12 +1,10 @@
 {
-  "demos": [
-    { "file": "files/circle.json", "title": "Circle Drawing", "icon": "bi-circle" },
-    { "file": "files/minesweeper.json", "title": "Minesweeper", "icon": "bi-controller" },
-    { "file": "files/fractal.json", "title": "Fractal", "icon": "bi-snow" },
-    { "file": "files/rain.json", "title": "Rain Simulation", "icon": "bi-cloud-rain" },
-    { "file": "files/game.json", "title": "Simple Game", "icon": "bi-controller" },
-    { "file": "files/clock.json", "title": "Analog Clock", "icon": "bi-clock" },
-    { "file": "files/snake.json", "title": "Snake Game", "icon": "bi-joystick" },
-    { "file": "files/paint.json", "title": "Paint App", "icon": "bi-palette" }
+  "apps": [
+    { "file": "apps/circle.json", "title": "Circle", "icon": "bi-circle" },
+    { "file": "apps/shapes.json", "title": "Shapes", "icon": "bi-palette" },
+    { "file": "apps/particles.json", "title": "Particles", "icon": "bi-diagram-3" },
+    { "file": "apps/fractal.json", "title": "Fractal", "icon": "bi-snow" },
+    { "file": "apps/clock.json", "title": "Clock", "icon": "bi-clock" },
+    { "file": "apps/dashboard.json", "title": "Dashboard", "icon": "bi-bar-chart-fill" }
   ]
 }
